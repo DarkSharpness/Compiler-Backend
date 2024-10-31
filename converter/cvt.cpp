@@ -49,14 +49,53 @@ static constexpr std::string_view rv32_rewrite_list[] = {
     "sll", "slli", "sra", "srai", "srl", "srli", "sub",
 };
 
+static auto match_sp_alloc(std::string_view line, std::string_view token) -> bool {
+    if (token != "addi")
+        return false;
+
+    // if there is 2 sp, then it is a stack allocation
+    const auto pos = line.find("sp");
+    if (pos == std::string::npos)
+        return false;
+
+    const auto next = line.find("sp", pos + 1);
+    return next != std::string::npos;
+}
+
+static auto rewrite_main(std::string &line, std::string_view token) -> bool {
+    if (token == ".globl" || token == ".global") {
+        const auto pos   = token.data() + token.size() - line.data();
+        const auto view  = std::string_view{line}.substr(pos);
+        const auto label = find_first_token(view);
+        if (label != "main")
+            return false;
+
+        // clang-format off
+        line =
+R"(
+    .globl _main_from_a_user_program
+    .local main
+)";
+        // clang-format on
+        return true;
+    }
+    return false;
+}
+
 static auto rewrite(std::istream &is, std::ostream &os) -> void {
     std::string line;
     while (std::getline(is, line)) {
         auto token = find_first_token(line);
-        if (token.empty()) {
+        if (token.empty() || match_sp_alloc(line, token)) {
             os << line << '\n';
             continue;
         }
+
+        if (rewrite_main(line, token)) {
+            os << line << '\n';
+            continue;
+        }
+
         // rewrite all RV32 command
         match_list_rewrite(line, token, rv32_rewrite_list);
         os << line << '\n';
