@@ -2,11 +2,11 @@
     .align 2
     .globl _trampoline_to_main
 _trampoline_to_main:
-    la t0, old_stack
+    addi sp, sp, -160
+    lla t0, old_stack
     sd sp, 0(t0)
 
     # spill all callee saved registers
-    addi sp, sp, -160
     sd ra, 0(sp)
     sd s0, 8(sp)
     sd s1, 16(sp)
@@ -25,7 +25,7 @@ _trampoline_to_main:
     sd a0, 120(sp) # parameter
 
     mv a0, sp
-    la sp, user_stack_high
+    lla sp, user_stack_high
 
     csrrs t0, cycle, zero
     sd t0, 128(a0)
@@ -34,7 +34,7 @@ _trampoline_to_main:
 
     mv a1, a0
 
-    la t0, old_stack
+    lla t0, old_stack
     ld sp, 0(t0)
 
     ld ra, 0(sp)
@@ -59,6 +59,7 @@ _trampoline_to_main:
     sd t2, 8(a0)
 
     mv a0, a1
+    addi sp, sp, 160
     ret
 
     .section .data

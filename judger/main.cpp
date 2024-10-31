@@ -3,6 +3,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <format>
+#include <fstream>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,12 +23,12 @@ void run(std::string program, std::string input_file, std::string output_file) {
 		std::cerr << "Program name too long: " << program << std::endl;
 		shutdown_system();
 	}
-
+	constexpr auto tmp_out = "/tmp.out";
 	auto pid = fork();
 	if (pid == 0) {
-		// freopen(input_file.c_str(), "rb", stdin);
-		// freopen("/tmp.out", "wb", stdout);
-		// fclose(stderr);
+		freopen(input_file.c_str(), "rb", stdin);
+		freopen(tmp_out, "wb", stdout);
+		fclose(stderr);
 		char *r_argv[] = {(char *) program.c_str(), nullptr};
 		int ret = execve(program.c_str(), r_argv, nullptr);
 		std::cout << "\033[31m" << std::format("Error ! execve not succeed, code = {}", ret) << std::endl;
@@ -73,7 +74,12 @@ void run(std::string program, std::string input_file, std::string output_file) {
 	std::cout << std::format("\tnivcsw: {}\n", usage.ru_nivcsw);
 	// === output ===
 	std::cout << "Output:\n";
-	std::cout << "not implemented\n";
+
+	char buffer[1024];
+	FILE *f = fopen(tmp_out, "rb");
+	while (auto size = fread(buffer, 1, sizeof(buffer), f))
+		std::cout << std::string_view(buffer, size);
+	fclose(f);
 }
 
 
