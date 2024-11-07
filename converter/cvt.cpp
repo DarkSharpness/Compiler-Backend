@@ -3,6 +3,7 @@
 #include <format>
 #include <iostream>
 #include <istream>
+#include <iterator>
 #include <ostream>
 #include <span>
 #include <string>
@@ -74,6 +75,7 @@ static auto rewrite_main(std::string &line, std::string_view token) -> bool {
         line =
 R"(
     .globl _main_from_a_user_program
+_main_from_a_user_program:
     .local main
 )";
         // clang-format on
@@ -82,12 +84,45 @@ R"(
     return false;
 }
 
+// ignore those directive
+static constexpr std::string_view attribute_list[] = {
+    ".type", ".size", ".attribute", ".addrsig", ".ident",
+};
+
+static auto match_directive(std::string_view token) -> bool {
+    if (!token.starts_with('.'))
+        return false;
+    return std::ranges::find(attribute_list, token) != std::end(attribute_list);
+}
+
 static auto rewrite(std::istream &is, std::ostream &os) -> void {
     std::string line;
     while (std::getline(is, line)) {
         auto token = find_first_token(line);
-        if (token.empty() || match_sp_alloc(line, token)) {
+
+        // empty line or addi on sp
+        if (token.empty())
+            continue;
+
+        // keep the original line
+        if (match_sp_alloc(line, token)) {
             os << line << '\n';
+            continue;
+        }
+
+        // label case
+        if (line[token.size()] == ':') {
+            os << line << '\n';
+            continue;
+        }
+
+        // ignore some directive
+        if (match_directive(token))
+            continue;
+
+        // rewrite .rodata, since gcc does not support it
+        if (token == ".rodata") {
+            os << "    .section .rodata\n";
             continue;
         }
 
