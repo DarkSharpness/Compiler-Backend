@@ -224,16 +224,17 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
 }
 
 static auto rewrite_libc_mem(std::string &line, std::string_view token) -> bool {
-    if (token != "call")
+    if (token != "call" && token != "tail")
         return false;
+
     auto view = std::string_view{line};
     view.remove_prefix(token.data() + token.size() - view.data());
     const auto func = find_first_token(view);
 
     if (func == "malloc") {
-        line = "    call _my_malloc";
+        line = std::format("    {} _my_malloc", token);
     } else if (func == "free") {
-        line = "    nop";
+        line = (token == "call") ? "    nop" : "    ret";
     } else {
         return false;
     }
