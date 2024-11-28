@@ -161,7 +161,7 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
         // * rs1 does not need to be preserved
 
         // fmv.d.x      ft0, rs2
-        // slli         rd, rs1, 32
+        // slli         rd, rd, 32
         // slli         rs2, rs2, 32
         // <token>      rd, rd, rs2
         // <policy>     rd, rd, 32
@@ -174,13 +174,13 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
             "{} {}, {}, {}\n"
             "{} {}, {}, 32\n"
             "fmv.x.d {}, ft0\n",
-            rs2, rd, rs1, rs2, rs2, token, rd, rd, rs2, *policy, rd, rd, rs2, rs2
+            rs2, rd, rd, rs2, rs2, token, rd, rd, rs2, *policy, rd, rd, rs2, rs2
         );
     } else if (rd == rs2) {
         // * rs2 does not need to be preserved
 
         // fmv.d.x      ft0, rs1
-        // slli         rd, rs2, 32
+        // slli         rd, rd, 32
         // slli         rs1, rs1, 32
         // <token>      rd, rs1, rd
         // <policy>     rd, rd, 32
@@ -193,16 +193,16 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
             "{} {}, {}, {}\n"
             "{} {}, {}, 32\n"
             "fmv.x.d {}, ft0\n",
-            rs1, rd, rs1, rs2, rs2, token, rd, rd, rs1, *policy, rd, rd, rs1, rs2
+            rs1, rd, rd, rs1, rs1, token, rd, rs1, rd, *policy, rd, rd, rs1, rs1
         );
     } else {
         // * both rs1 and rs2 need to be preserved
 
         // fmv.d.x      ft0, rs1
         // fmv.d.x      ft1, rs2
-        // slli         rd, rs1, 32
+        // slli         rs1, rs1, 32
         // slli         rs2, rs2, 32
-        // <token>      rd, rd, rs2
+        // <token>      rd, rs1, rs2
         // <policy>     rd, rd, 32
         // fmv.x.d      rs1, ft0
         // fmv.x.d      rs2, ft1
@@ -216,7 +216,7 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
             "{} {}, {}, 32\n"
             "fmv.x.d {}, ft0\n"
             "fmv.x.d {}, ft1\n",
-            rs1, rs2, rd, rs1, rs2, rs2, token, rd, rd, rs2, *policy, rd, rd, rs2, rs1, rs2
+            rs1, rs2, rs1, rs1, rs2, rs2, token, rd, rs1, rs2, *policy, rd, rd, rs1, rs2
         );
     }
 
