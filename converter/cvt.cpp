@@ -168,12 +168,12 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
         // fmv.x.d      rs2, ft0
 
         line = std::format(
-            "fmv.d.x ft0, {}\n"
-            "slli {}, {}, 32\n"
-            "slli {}, {}, 32\n"
-            "{} {}, {}, {}\n"
-            "{} {}, {}, 32\n"
-            "fmv.x.d {}, ft0\n",
+            "    fmv.d.x ft0, {}\n"
+            "    slli {}, {}, 32\n"
+            "    slli {}, {}, 32\n"
+            "    {} {}, {}, {}\n"
+            "    {} {}, {}, 32\n"
+            "    fmv.x.d {}, ft0\n",
             rs2, rd, rd, rs2, rs2, token, rd, rd, rs2, *policy, rd, rd, rs2, rs2
         );
     } else if (rd == rs2) {
@@ -187,12 +187,12 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
         // fmv.x.d      rs1, ft0
 
         line = std::format(
-            "fmv.d.x ft0, {}\n"
-            "slli {}, {}, 32\n"
-            "slli {}, {}, 32\n"
-            "{} {}, {}, {}\n"
-            "{} {}, {}, 32\n"
-            "fmv.x.d {}, ft0\n",
+            "    fmv.d.x ft0, {}\n"
+            "    slli {}, {}, 32\n"
+            "    slli {}, {}, 32\n"
+            "    {} {}, {}, {}\n"
+            "    {} {}, {}, 32\n"
+            "    fmv.x.d {}, ft0\n",
             rs1, rd, rd, rs1, rs1, token, rd, rs1, rd, *policy, rd, rd, rs1, rs1
         );
     } else {
@@ -208,18 +208,35 @@ static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
         // fmv.x.d      rs2, ft1
 
         line = std::format(
-            "fmv.d.x ft0, {}\n"
-            "fmv.d.x ft1, {}\n"
-            "slli {}, {}, 32\n"
-            "slli {}, {}, 32\n"
-            "{} {}, {}, {}\n"
-            "{} {}, {}, 32\n"
-            "fmv.x.d {}, ft0\n"
-            "fmv.x.d {}, ft1\n",
+            "    fmv.d.x ft0, {}\n"
+            "    fmv.d.x ft1, {}\n"
+            "    slli {}, {}, 32\n"
+            "    slli {}, {}, 32\n"
+            "    {} {}, {}, {}\n"
+            "    {} {}, {}, 32\n"
+            "    fmv.x.d {}, ft0\n"
+            "    fmv.x.d {}, ft1\n",
             rs1, rs2, rs1, rs1, rs2, rs2, token, rd, rs1, rs2, *policy, rd, rd, rs1, rs2
         );
     }
 
+    return true;
+}
+
+static auto rewrite_libc_mem(std::string &line, std::string_view token) -> bool {
+    if (token != "call")
+        return false;
+    auto view = std::string_view{line};
+    view.remove_prefix(token.data() + token.size() - view.data());
+    const auto func = find_first_token(view);
+
+    if (func == "malloc") {
+        line = "    call _my_malloc";
+    } else if (func == "free") {
+        line = "    nop";
+    } else {
+        return false;
+    }
     return true;
 }
 
@@ -256,6 +273,11 @@ static auto rewrite(std::istream &is, std::ostream &os) -> void {
 
         // rewrite main function
         if (rewrite_main(line, token)) {
+            os << line << '\n';
+            continue;
+        }
+
+        if (rewrite_libc_mem(line, token)) {
             os << line << '\n';
             continue;
         }
