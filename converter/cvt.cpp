@@ -235,6 +235,10 @@ static auto rewrite_libc_mem(std::string &line, std::string_view token) -> bool 
         line = std::format("    {} _my_malloc", token);
     } else if (func == "free") {
         line = (token == "call") ? "    nop" : "    ret";
+    } else if (func == "calloc") {
+        line = std::format("    {} _my_calloc", token);
+    } else if (func == "realloc") {
+        throw std::runtime_error("realloc is not supported yet");
     } else {
         return false;
     }
