@@ -25,7 +25,7 @@ $(testcase_elf): %.elf : %.S
 	@./cvt < '$<' > '$<.s'
 	@sed -i 's/@progbits/~~~~~/g;s/@/_._/g;s/~~~~~/@progbits/g' '$<.s'
 	@sed -i 's/.globl/.local/g;s/.local _main_from_a_user_program/.globl _main_from_a_user_program/g;' '$<.s'
-	@riscv64-linux-gnu-g++ -std=c++20 -O3 -static -o '$@' '$<.s' converter/wrap.cpp converter/trampoline.s -Iinclude
+	@riscv64-linux-gnu-g++ -std=c++20 -O3 -static -o '$@' '$<.s' converter/wrap.cpp converter/trampoline.s converter/mylibc.cpp -Iinclude
 	@rm '$<.s'
 
 rootfs/%.elf: %.elf
