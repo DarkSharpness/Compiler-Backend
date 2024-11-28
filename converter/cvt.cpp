@@ -4,6 +4,7 @@
 #include <iostream>
 #include <istream>
 #include <iterator>
+#include <optional>
 #include <ostream>
 #include <span>
 #include <string>
@@ -13,15 +14,23 @@ static auto is_label_char(char c) -> bool {
     return std::isalnum(c) || c == '_' || c == '.' || c == '@' || c == '$';
 }
 
-static auto find_first_token(std::string_view line) -> std::string_view {
-    // skip all white spaces
+static auto skip_space(std::string_view line) -> std::string_view {
     const auto pos = std::ranges::find_if_not(line, ::isspace);
-    if (pos == line.end())
-        return {};
-    // find a valid token
-    const auto substr = line.substr(pos - line.begin());
+    return line.substr(pos - line.begin());
+}
+
+static auto find_first_token(std::string_view line) -> std::string_view {
+    const auto substr = skip_space(line);
     const auto end    = std::ranges::find_if_not(substr, is_label_char);
     return substr.substr(0, end - substr.begin());
+}
+
+static auto skip_comma(std::string_view line) -> std::string_view {
+    const auto substr = skip_space(line);
+    const auto pos    = std::ranges::find(substr, ',');
+    if (*pos == ',')
+        return line.substr(pos - line.begin() + 1);
+    return {};
 }
 
 static auto
@@ -46,7 +55,7 @@ static auto match_list_rewrite(
 
 // those needed to be rewrite
 static constexpr std::string_view rv32_rewrite_list[] = {
-    "add", "addi", "div", "divu", "mul", "negw", "rem", "remu",
+    "add", "addi", "div", "divu", "mul", "neg", "rem", "remu",
     "sll", "slli", "sra", "srai", "srl", "srli", "sub",
 };
 
@@ -95,6 +104,57 @@ static auto match_directive(std::string_view token) -> bool {
     return std::ranges::find(attribute_list, token) != std::end(attribute_list);
 }
 
+static auto rewrite_mul(std::string &line, std::string_view token) -> bool {
+    // those needed to be rewrite
+    // since XLEN: 32 -> 64, we just normally mul
+    // and shift the high part down
+    std::optional<std::string_view> policy {};
+    if (token == "mulh")
+        policy = "srai";
+    else if (token == "mulhsu")
+        policy = "srai";
+    else if (token == "mulhu")
+        policy = "srli";
+
+    if (!policy)
+        return false;
+
+    // find rd, rs1, rs2
+    auto view = std::string_view{line};
+
+    view = view.substr(token.data() + token.size() - view.data());
+    view = skip_space(view);
+    const auto rd = find_first_token(view);
+    if (rd.empty())
+        return false;
+
+    view = skip_comma(view.substr(rd.size()));
+    const auto rs1 = find_first_token(view);
+    if (rs1.empty())
+        return false;
+
+    view = skip_comma(view);
+    const auto rs2 = find_first_token(view);
+    if (rs2.empty())
+        return false;
+
+    // use tp and gp as temporary register
+    // slli tp, rs1, 32
+    // slli gp, rs2, 32
+    // <token> rd, tp, gp
+    // <policy> rd, rd, 32
+
+    auto cmd = std::format(
+        "    slli tp, {}, 32\n"
+        "    slli gp, {}, 32\n"
+        "    {} {}, tp, gp\n"
+        "    {} {}, {}, 32\n",
+        rs1, rs2, token, rd, *policy, rd, rd
+    );
+    line = cmd;
+    return true;
+}
+
 static auto rewrite(std::istream &is, std::ostream &os) -> void {
     std::string line;
     while (std::getline(is, line)) {
@@ -126,7 +186,14 @@ static auto rewrite(std::istream &is, std::ostream &os) -> void {
             continue;
         }
 
+        // rewrite main function
         if (rewrite_main(line, token)) {
+            os << line << '\n';
+            continue;
+        }
+
+        // rewrite special mul
+        if (rewrite_mul(line, token)) {
             os << line << '\n';
             continue;
         }
